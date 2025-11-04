@@ -1,5 +1,6 @@
+version: "3.8"
+
 services:
-  # ... (redis-server and mongo-db remain the same) ...
   redis-server:
     image: "redis:alpine"
     container_name: redis-server
@@ -8,8 +9,10 @@ services:
       - chat-net
     volumes:
       - redis-data:/data
+    restart: always
     ports:
       - "6379:6379"
+
   mongo-db:
     image: mongo:latest
     container_name: mongo-db
@@ -21,49 +24,42 @@ services:
       - chat-net
     volumes:
       - mongo-data:/data/db
+    restart: always
     ports:
       - "27017:27017"
 
-  # --- 3. Chat Server (app.py) ---
   chat-server:
-    build: . 
+    image: ${DOCKERHUB_USERNAME}/chat-server:latest
     container_name: chat-server
     command: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:8000 app:app
     networks:
       - chat-net
-    volumes:
-      - .:/app 
+    env_file:
+      - .env
+    depends_on:
+      - redis-server
+      - mongo-db
     ports:
       - "8000:8000"
-    env_file:
-    - .env
-    depends_on:
-      - redis-server
-      - mongo-db
+    restart: always
 
-
-  # --- 4. Chat Worker (worker.py) ---
   chat-worker:
-    build: . 
+    image: ${DOCKERHUB_USERNAME}/chat-worker:latest
     container_name: chat-worker
-    command: bash -c "watchmedo auto-restart --pattern='*.py' --recursive -- python worker.py"
+    command: python worker.py
     networks:
       - chat-net
-    volumes:
-      - .:/app 
     env_file:
-    - .env
+      - .env
     depends_on:
       - redis-server
       - mongo-db
+    restart: always
 
-# --- Networks ---
 networks:
   chat-net:
     driver: bridge
 
-# --- Volumes ---
 volumes:
   mongo-data:
   redis-data:
-

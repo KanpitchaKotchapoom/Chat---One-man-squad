@@ -1,0 +1,44 @@
+name: CD Pipeline
+
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: [self-hosted, Linux, X64]
+    environment: production
+
+    steps:
+      - name: 🧩 Check out code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: ⚙️ Create .env file for production
+        run: |
+          {
+            echo "MONGO_USERNAME=${{ secrets.MONGO_USERNAME }}"
+            echo "MONGO_PASSWORD=${{ secrets.MONGO_PASSWORD }}"
+            echo "MONGO_DB=${{ secrets.MONGO_DB }}"
+            echo "REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}"
+            echo "SECRET_KEY=${{ secrets.SECRET_KEY }}"
+          } > .env
+          chmod 600 .env
+
+      - name: 🐳 Pull & Deploy Docker Containers
+        run: |
+          docker compose down
+          docker compose pull
+          docker compose up -d
+          docker image prune -f
+
+      - name: 🔍 Verify Running Containers
+        run: docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
