@@ -45,11 +45,11 @@ jobs:
         echo "Building and pushing images to Docker Hub..."
 
         # Build both images
-        docker build -t kankot/chat-server:latest -f Dockerfile .
-        docker build -t kankot/chat-worker:latest -f Dockerfile .
+        docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/chat-server:latest -f Dockerfile .
+        docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/chat-worker:latest -f Dockerfile .
 
         # Push both images
-        docker push kankot/chat-server:latest
-        docker push kankot/chat-worker:latest
+        docker push ${{ secrets.DOCKERHUB_USERNAME }}/chat-server:latest
+        docker push ${{ secrets.DOCKERHUB_USERNAME }}/chat-worker:latest
 
         echo "Done: Images pushed to Docker Hub"
