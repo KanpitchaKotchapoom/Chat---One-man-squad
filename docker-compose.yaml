@@ -5,6 +5,7 @@ services:
   redis-server:
     image: "redis:alpine"
     container_name: redis-server
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
     networks:
       - chat-net
     volumes:
@@ -14,6 +15,10 @@ services:
   mongo-db:
     image: mongo:latest
     container_name: mongo-db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_DB}
     networks:
       - chat-net
     volumes:
@@ -32,10 +37,8 @@ services:
       - .:/app 
     ports:
       - "8000:8000"
-    environment:
-      - REDIS_URL=redis://redis-server:6379
-      - MONGO_URL=mongodb://mongo-db:27017/
-      - PYTHONUNBUFFERED=1
+    env_file:
+    - .env
     depends_on:
       - redis-server
       - mongo-db
@@ -50,10 +53,8 @@ services:
       - chat-net
     volumes:
       - .:/app 
-    environment:
-      - REDIS_URL=redis://redis-server:6379/0
-      - MONGO_URL=mongodb://mongo-db:27017/
-      - PYTHONUNBUFFERED=1
+    env_file:
+    - .env
     depends_on:
       - redis-server
       - mongo-db

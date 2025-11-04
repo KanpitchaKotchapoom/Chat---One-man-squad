@@ -6,3 +6,4 @@ gunicorn
 eventlet
 watchgod
 flask-cors
+python-dotenv

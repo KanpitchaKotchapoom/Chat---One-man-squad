@@ -9,25 +9,34 @@ import pymongo
 import redis
 import json
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
-# ⚡ ใช้ Eventlet
+# ใช้ Eventlet
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")
 
 # -----------------------------
-# DATABASE CONFIG
+# DATABASE CONFIG (Updated)
 # -----------------------------
-MONGO_URI = os.environ.get("MONGO_URL", "mongodb://mongo-db:27017/")
-REDIS_HOST = os.environ.get("REDIS_URL", "redis://redis-server:6379/0")
+MONGO_USERNAME = os.getenv("MONGO_USERNAME")
+MONGO_PASSWORD = os.getenv("MONGO_PASSWORD")
+MONGO_DB = os.getenv("MONGO_DB", "chat_app")
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
+
+MONGO_URI = f"mongodb://{MONGO_USERNAME}:{MONGO_PASSWORD}@mongo-db:27017/{MONGO_DB}?authSource=admin"
+REDIS_URL = f"redis://:{REDIS_PASSWORD}@redis-server:6379/0"
 
 mongo_client = pymongo.MongoClient(MONGO_URI)
-db = mongo_client["chat_app"]
+db = mongo_client[MONGO_DB]
 users_collection = db["users"]
-r = redis.from_url(REDIS_HOST, decode_responses=True)
+
+r = redis.from_url(REDIS_URL, decode_responses=True)
 
 # -----------------------------
 # Routes
