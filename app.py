@@ -185,7 +185,15 @@ def handle_clear_history(data):
         emit('clear_history_response', {'success': False, 'message': 'Room not specified.'}, to=request.sid)
         return
 
-    clear_room_history(room_name)
+    # ลบ list ของข้อความใน Redis
+    r.delete(f"history:{room_name}")
+
+    # ล้าง field history ใน room object (ถ้ามี)
+    room = get_room(room_name)
+    if room:
+        room["history"] = []
+        save_room(room_name, room)
+
     emit('clear_history_response', {'success': True, 'room': room_name}, to=request.sid)
     emit('load_history', [], room=room_name)
 
