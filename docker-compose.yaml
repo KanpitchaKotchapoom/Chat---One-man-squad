@@ -1,0 +1,70 @@
+version: "3.8"
+
+services:
+  # ... (redis-server and mongo-db remain the same) ...
+  redis-server:
+    image: "redis:alpine"
+    container_name: redis-server
+    networks:
+      - chat-net
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+  mongo-db:
+    image: mongo:latest
+    container_name: mongo-db
+    networks:
+      - chat-net
+    volumes:
+      - mongo-data:/data/db
+    ports:
+      - "27017:27017"
+
+  # --- 3. Chat Server (app.py) ---
+  chat-server:
+    build: . 
+    container_name: chat-server
+    command: gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:8000 app:app
+    networks:
+      - chat-net
+    volumes:
+      - .:/app 
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis-server:6379
+      - MONGO_URL=mongodb://mongo-db:27017/
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - redis-server
+      - mongo-db
+
+
+  # --- 4. Chat Worker (worker.py) ---
+  chat-worker:
+    build: . 
+    container_name: chat-worker
+    command: bash -c "watchmedo auto-restart --pattern='*.py' --recursive -- python worker.py"
+    networks:
+      - chat-net
+    volumes:
+      - .:/app 
+    environment:
+      - REDIS_URL=redis://redis-server:6379/0
+      - MONGO_URL=mongodb://mongo-db:27017/
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - redis-server
+      - mongo-db
+
+# --- Networks ---
+networks:
+  chat-net:
+    driver: bridge
+
+# --- Volumes ---
+volumes:
+  mongo-data:
+  redis-data:
+

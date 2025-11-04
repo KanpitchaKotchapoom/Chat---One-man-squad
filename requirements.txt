@@ -1,0 +1,8 @@
+flask
+flask-socketio
+redis
+pymongo
+gunicorn
+eventlet
+watchgod
+flask-cors

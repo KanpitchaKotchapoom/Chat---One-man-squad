@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Realtime Chat Rooms</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  </head>
+
+  <body class="bg-gray-100 min-h-screen flex items-center justify-center">
+    <div
+      id="chatPage"
+      class="w-full max-w-5xl h-[90vh] bg-white rounded-2xl shadow-xl overflow-hidden flex"
+    >
+      <!-- Sidebar -->
+      <div class="w-1/3 bg-gray-50 border-r flex flex-col">
+        <div class="p-4 border-b flex justify-between items-center">
+          <h2 class="text-lg font-semibold text-gray-700">🗂 ห้องแชท</h2>
+          <button
+            id="newRoomBtn"
+            class="text-sm bg-teal-500 text-white px-3 py-1 rounded-lg hover:bg-teal-600"
+          >
+            + สร้างห้อง
+          </button>
+        </div>
+        <ul id="roomList" class="flex-1 overflow-y-auto divide-y"></ul>
+        <div class="p-3 border-t text-center text-sm text-gray-500">
+          👤 <span id="userDisplay"></span>
+        </div>
+      </div>
+
+      <!-- Main Chat -->
+      <div class="flex-1 flex flex-col">
+        <div class="flex justify-between items-center p-4 border-b bg-gray-50">
+          <div>
+            <h2 id="roomHeader" class="text-lg font-semibold text-gray-700">
+              เลือกห้องเพื่อเริ่มแชท
+            </h2>
+            <p id="roomOwner" class="text-sm text-gray-500"></p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span id="roomUsers" class="text-sm text-gray-600"></span>
+            <button
+              id="clearBtn"
+              class="hidden bg-yellow-500 text-white px-3 py-1 rounded-lg hover:bg-yellow-600 text-sm"
+            >
+              🧹 ล้างแชท
+            </button>
+            <button
+              id="deleteRoomBtn"
+              class="hidden bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600 text-sm"
+            >
+              🗑️ ลบห้อง
+            </button>
+            <button
+              id="logoutBtn"
+              class="bg-gray-500 text-white px-3 py-1 rounded-lg hover:bg-gray-600 text-sm"
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+
+        <ul id="messages" class="flex-1 overflow-y-auto p-4 space-y-2 bg-white"></ul>
+
+        <form id="form" class="p-4 border-t bg-gray-50 flex">
+          <input
+            id="input"
+            autocomplete="off"
+            placeholder="พิมพ์ข้อความ..."
+            class="flex-grow border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          />
+          <button
+            type="submit"
+            class="ml-3 bg-teal-600 text-white px-4 py-2 rounded-full hover:bg-teal-700"
+          >
+            ส่ง
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <script>
+
+      $(function () {
+        const socket = io();
+        socket.on("connect", () => console.log("✅ Connected to server"));
+      socket.on("disconnect", () => console.log("❌ Disconnected from server"));
+        let username = sessionStorage.getItem("username");
+        let currentRoom = null;
+
+        if (!username) {
+          location.href = "/login";
+          return;
+        }
+        $("#userDisplay").text(username);
+        
+        socket.emit("get_rooms");
+
+        socket.on("room_list", (rooms) => {
+            $("#roomList").empty();
+            rooms.forEach((room) => {
+                const li = $(`<li class="p-3 cursor-pointer hover:bg-teal-50 flex justify-between items-center">
+                    <span>${room.name}</span>
+                    <span class="text-xs text-gray-500">👑 ${room.owner}</span>
+                </li>`);
+                li.click(() => joinRoom(room.name));
+                $("#roomList").append(li);
+            });
+        });
+
+        // --- สร้างห้อง ---
+        $("#newRoomBtn").click(() => {
+          const roomName = prompt("ตั้งชื่อห้องใหม่:");
+          if (roomName) {
+            console.log("📤 create_room event sent:", roomName, username);
+            socket.emit("create_room", { room: roomName, owner: username });
+          }
+        });
+
+        // --- เข้าร่วมห้อง ---
+        function joinRoom(room) {
+          currentRoom = room;
+          $("#messages").empty();
+          $("#roomHeader").text(`💬 ห้อง: ${room}`);
+          socket.emit("join_room", { room });
+        }
+
+        // --- แสดงข้อความ ---
+        function appendMessage(msg) {
+            const isOwn = msg.user === username;
+
+            const li = $("<li>")
+                .addClass(
+                    "p-2 rounded-lg " +
+                    (isOwn ? "bg-teal-50 text-right" : "bg-gray-50 text-left")
+                );
+
+            const nameColor = isOwn ? "text-teal-700" : "text-gray-700";
+            const bubbleColor = isOwn ? "bg-teal-100" : "bg-gray-100";
+
+            li.html(`
+                <div class="inline-block px-3 py-1 rounded-xl ${bubbleColor}">
+                    <span class="font-semibold ${nameColor}">[${msg.user}]</span>
+                    <span>: ${msg.text}</span>
+                </div>
+            `);
+
+            $("#messages").append(li);
+            $("#messages").scrollTop($("#messages")[0].scrollHeight);
+        }
+
+        socket.on("receive_message", appendMessage);
+
+        // --- โหลดประวัติ ---
+        socket.on("load_history", (history) => {
+            $("#messages").empty();
+            history.forEach(appendMessage);
+        });
+        // --- ข้อมูลห้อง ---
+        socket.on("room_info", (info) => {
+            $("#roomOwner").text(`👑 เจ้าของห้อง: ${info.owner}`);
+            // แสดงปุ่มลบ/ล้างเฉพาะเจ้าของห้อง
+            if (info.owner === username) {
+                $("#clearBtn, #deleteRoomBtn").show();
+            } else {
+                $("#clearBtn, #deleteRoomBtn").hide();
+            }
+        });
+
+        // --- ส่งข้อความ ---
+        $("#form").submit((e) => {
+            e.preventDefault();
+            const text = $("#input").val().trim();
+            if (text && currentRoom) {
+                socket.emit("send_message", { text, room: currentRoom });
+                $("#input").val("");
+            }
+        });
+
+        // --- ปุ่มล้างแชท ---
+        $("#clearBtn").click(() => {
+            if (confirm("ต้องการล้างประวัติแชททั้งหมดในห้องนี้หรือไม่?")) {
+                socket.emit("clear_history", { room: currentRoom });
+            }
+        });
+
+        socket.on("clear_history_response", () => {
+            $("#messages").empty();
+        });
+
+        // --- ปุ่มลบห้อง ---
+        $("#deleteRoomBtn").click(() => {
+            if (confirm("ต้องการลบห้องนี้ถาวรหรือไม่?")) {
+                socket.emit("delete_room", { room: currentRoom });
+                $("#messages").empty();
+                $("#roomHeader").text("เลือกห้องเพื่อเริ่มแชท");
+                $("#roomOwner").text("");
+                $("#clearBtn, #deleteRoomBtn").hide();
+                socket.emit("get_rooms");
+            }
+        });
+
+        // --- Logout ---
+        $("#logoutBtn").click(() => {
+            sessionStorage.removeItem("username");
+            socket.emit("logout");
+            location.href = "/login";
+        });
+
+
+        // --- รายชื่อผู้ใช้ในห้อง ---
+        socket.on("room_users", (users) => {
+            $("#roomUsers").text(`👥 ผู้ใช้ที่อยู่ในห้อง: ${users.join(", ")}`);
+        });
+
+        // --- เคลียร์หน้าจอหลังล้างแชท ---
+        socket.on("history_cleared", () => {
+          $("#messages").empty();
+        });
+
+        socket.on("connect", () => {
+          console.log("✅ Connected to server");
+          const username = sessionStorage.getItem("username");
+          if (username) {
+            // ✅ แจ้ง server ให้รู้ว่า user คนนี้คือใครหลัง reconnect
+            socket.emit("reconnect_login", { username });
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

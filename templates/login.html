@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Login</title>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<style>
+body {
+  font-family: sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background: #f0f0f0;
+}
+#loginContainer {
+  background: white;
+  padding: 2rem;
+  border-radius: 1rem;
+  box-shadow: 0 0 10px rgba(0,0,0,0.2);
+  width: 300px;
+}
+#loginContainer h2 {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+#loginContainer input {
+  width: 100%;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid #ccc;
+}
+#loginContainer button {
+  width: 100%;
+  padding: 0.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: #0d9488;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+#loginContainer button:hover {
+  background: #0f766e;
+}
+#loginContainer p {
+  text-align: center;
+  margin-top: 1rem;
+}
+#loginContainer a {
+  color: #0d9488;
+  text-decoration: none;
+}
+#loginContainer a:hover {
+  text-decoration: underline;
+}
+</style>
+</head>
+<body>
+
+<div id="loginContainer">
+  <h2>🔐 Login</h2>
+  <input id="username" type="text" placeholder="Username"/>
+  <input id="password" type="password" placeholder="Password"/>
+  <button id="loginBtn">Login</button>
+  <p>ยังไม่สมัคร? <a href="/register">Register</a></p>
+</div>
+
+<script>
+const socket = io();
+
+$("#loginBtn").click(() => {
+    const username = $("#username").val().trim();
+    const password = $("#password").val().trim();
+    if(!username || !password) return alert("กรุณากรอก username และ password");
+    socket.emit("login", {username, password});
+});
+
+socket.on("login_response", (res) => {
+    if (res.success) {
+        // เก็บชื่อผู้ใช้ไว้ใน browser
+        sessionStorage.setItem("username", res.username);
+        // ไปหน้า chat
+        location.href = "/";
+    } else {
+        alert(res.message);
+    }
+});
+</script>
+
+</body>
+</html>
