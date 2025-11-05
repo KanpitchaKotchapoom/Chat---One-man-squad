@@ -208,6 +208,19 @@ def handle_join_room(data):
     if not username:
         return
 
+    # ✅ ตรวจสอบว่าผู้ใช้เคยอยู่ห้องไหน
+    old_room = r.hget(f"user:{request.sid}", "room")
+    if old_room and old_room != room_name:
+        leave_room(old_room)
+        old_room_info = get_room(old_room)
+        if old_room_info and username in old_room_info.get("users", []):
+            old_room_info["users"].remove(username)
+            save_room(old_room, old_room_info)
+            emit("room_users", old_room_info["users"], room=old_room)
+            emit("user_left", {"user": username, "room": old_room}, room=old_room)
+        print(f"🚪 {username} left room {old_room}")
+
+    # ✅ เข้าห้องใหม่
     join_room(room_name)
     r.hset(f"user:{request.sid}", "room", room_name)
 
@@ -217,18 +230,24 @@ def handle_join_room(data):
     messages = [json.loads(msg) for msg in history]
     emit("load_history", messages)
 
-    # แจ้งให้ทุกคนในห้องรู้ว่ามีใครอยู่บ้าง (ลบชื่อซ้ำ)
+    # แจ้งให้ทุกคนในห้องรู้ว่ามีใครอยู่บ้าง
     users_in_room = set()
     for sid in r.keys("user:*"):
         user_room = r.hget(sid, "room")
         if user_room == room_name:
             u = r.hget(sid, "username")
             if u:
-                users_in_room.add(u)  # ใช้ set ป้องกันชื่อซ้ำ
+                users_in_room.add(u)
+
+    # ✅ เพิ่มชื่อ user ปัจจุบันเข้า room info
+    room_info = get_room(room_name) or {"owner": "System", "users": []}
+    if "users" not in room_info:
+        room_info["users"] = []
+    if username not in room_info["users"]:
+        room_info["users"].append(username)
+        save_room(room_name, room_info)
 
     emit("room_users", sorted(list(users_in_room)), to=room_name)
-
-    room_info = get_room(room_name)
     emit("room_info", {"owner": room_info.get("owner", "System")}, to=request.sid)
 
     print(f"✅ {username} joined room {room_name}")

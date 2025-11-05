@@ -33,14 +33,15 @@ jobs:
           } > .env
           chmod 600 .env
 
-      - name: Clean Python cache
+      - name: Deep Clean Python cache
         run: |
-          find . -type d -name "__pycache__" -exec rm -rf {} +
-          find . -type f -name "*.pyc" -delete
+          echo "Removing old pycache..."
+          sudo find /home/ubuntu/action-runner/_work -type d -name "__pycache__" -exec rm -rf {} + || true
+          sudo find /home/ubuntu/action-runner/_work -type f -name "*.pyc" -delete || true
 
       - name: Clean Docker cache
         run: |
-          docker compose down --rmi all --volumes --remove-orphans
+          docker compose down --volumes --remove-orphans
           docker builder prune -f
 
       - name: Pull & Deploy Docker Containers
